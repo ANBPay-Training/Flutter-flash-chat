@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "451908682839",
+    "project_id": "flash-chatt-e10e8",
+    "storage_bucket": "flash-chatt-e10e8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:451908682839:android:54e4b3cace5b49631c4f12",
+        "android_client_info": {
+          "package_name": "co.mahnaazz.flash_chat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMTKOx32_ASwpQFjbeL9duh-CPHsMax48"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
