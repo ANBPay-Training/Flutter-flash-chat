@@ -7,6 +7,7 @@ import 'package:flash_chat/screens/chat_screen.dart';
 import 'firebase_options.dart';
 
 void main() async {
+  // connection til databasen
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -28,3 +29,24 @@ class FlashChat extends StatelessWidget {
     );
   }
 }
+
+// Applikationen er tilsluttet Firebase-databasen, og konfigurationen filer er i
+// Under oprettelsen af projektet i Firebase-databasen
+// android/app/google-servies.json
+// android/build.gradle.kts
+// android/app/build.gradle.kts
+// ---> firebase configuration -->
+// lib/firebase_options.dart
+// her skal man adde dependency i projektet:
+// pubspec.lock
+//
+// /firebase.json
+
+// Filen firebase.json er ikke nødvendig, hvis appen kun benytter Firestore
+// eller Authentication, men den er påkrævet eller nyttig, når man bruger
+// Hosting, Functions, Local Emulator eller ved deployment af projektet.
+// den oprettes med de kommandoer:
+
+// - npm install -g firebase-tools
+// - firebase login
+// - firebase init

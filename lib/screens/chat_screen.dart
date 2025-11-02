@@ -3,24 +3,34 @@ import 'package:flash_chat/constants.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../messages/message_stream.dart';
+
+// forbindelsen til databasen,
+// opretter en instans af Firestore, så vi kan gemme og læse data
 final _firestore = FirebaseFirestore.instance;
+// gemmer oplysninger om den indloggede bruger
+// ? betyder, at værdien kan være null
 User? loggedInUser;
+// En controller til TextField til at læse eller rydde den indtastede tekst
+final messageTextController = TextEditingController();
 
 class ChatScreen extends StatefulWidget {
+  // static const String id bruges til at identificere siden i navigationen
   static const String id = 'chat_screen';
   @override
   _ChatScreenState createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final messageTextController = TextEditingController();
   final _auth = FirebaseAuth.instance;
-
+// En variabel til at gemme beskedteksten, inden den sendes
   late String messageText;
 
   @override
   void initState() {
     super.initState();
+
+    // at identificere den indloggede bruger
 
     getCurrentUser();
   }
@@ -42,10 +52,13 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // scaffold builder siden og har to dele en app-bar og en body
       appBar: AppBar(
+        // betyder at den venstre side skal ikke have knappen
         leading: null,
         actions: <Widget>[
           IconButton(
+              // at logge brugeren ud og gå tilbage til den forrige side
               icon: Icon(Icons.close),
               onPressed: () {
                 _auth.signOut();
@@ -55,13 +68,21 @@ class _ChatScreenState extends State<ChatScreen> {
         title: Text('⚡️Chat'),
         backgroundColor: Colors.lightBlueAccent,
       ),
+      // Sikrer, at indholdet vises i de sikre områder af skærmen
       body: SafeArea(
+        // Column arrangerer indholdet lodret
         child: Column(
+          // giver afstand mellem beskederne
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.stretch,
+          // den består af en del til at vise beskeder og en send afdeling
           children: <Widget>[
-            MessagesStream(),
+            MessagesStream(
+              firestore: _firestore,
+            ),
             Container(
+              // den container for at sende-besked indeholder row:
+              // en tekst-file og en knappe
               decoration: kMessageContainerDecoration,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -69,39 +90,24 @@ class _ChatScreenState extends State<ChatScreen> {
                   Expanded(
                     child: TextField(
                       controller: messageTextController,
+                      // onChanged gemmer værdien i messageText hver gang teksten ændres
                       onChanged: (value) {
                         messageText = value;
-                      },
-                      onSubmitted: (value) {
-                        // inter bruges som en send knapp
-                        if (value.trim().isNotEmpty) {
-                          // tjekker hvis noget er i messagae før message sendes
-                          messageTextController.clear();
-                          _firestore.collection('messages').add({
-                            'text': value,
-                            'sender': loggedInUser?.email,
-                            // tilføjer den del for data bliver send i
-                            'timestamp': FieldValue.serverTimestamp(),
-                          });
-                        }
-                      },
-                      textInputAction:
-                          TextInputAction.send, // send knappe dukker upد
+                      }, // når brugeren indtaster Enter, Parameteren text
+                      //  får automatisk værdien, som brugeren har skrevet i
+                      // TextField,
+                      onSubmitted: sendMessage,
+                      // ændrer kun udseendet af Enter-knappen på tastaturet
+                      textInputAction: TextInputAction.send,
                       decoration: kMessageTextFieldDecoration,
                     ),
                   ),
                   TextButton(
                     onPressed: () {
-                      messageTextController.clear();
-                      _firestore.collection('messages').add({
-                        'text': messageText,
-                        'sender': loggedInUser?.email,
-                        'timestamp': FieldValue.serverTimestamp(),
-                      });
+                      sendMessage(messageText);
                     },
                     child: Text(
                       'Send',
-                      style: kSendButtonTextStyle,
                     ),
                   ),
                 ],
@@ -114,99 +120,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-class MessagesStream extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _firestore
-          .collection('messages')
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return Center(
-            child: CircularProgressIndicator(
-              backgroundColor: Colors.lightBlueAccent,
-            ),
-          );
-        }
-        final messages = snapshot.data!.docs;
-        List<MessageBubble> messageBubbles = [];
-        for (var message in messages) {
-          final messageData = message.data() as Map<String, dynamic>;
-          final messageText = messageData['text'];
-          final messageSender = messageData['sender'];
+void sendMessage(String text) {
+  if (text.trim().isEmpty) return; // Hvis teksten er tom, sendes ikke noget
+  _firestore.collection('messages').add({
+    'text': text,
+    'sender': loggedInUser?.email,
+    'timestamp': FieldValue.serverTimestamp(),
+  });
 
-          final currentUser = loggedInUser?.email;
-
-          final messageBubble = MessageBubble(
-            sender: messageSender,
-            text: messageText,
-            isMe: currentUser == messageSender,
-          );
-
-          messageBubbles.add(messageBubble);
-        }
-        return Expanded(
-          child: ListView(
-            reverse: true,
-            padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 20.0),
-            children: messageBubbles,
-          ),
-        );
-      },
-    );
-  }
-}
-
-class MessageBubble extends StatelessWidget {
-  MessageBubble({this.sender, this.text, required this.isMe});
-
-  final String? sender;
-  final String? text;
-  final bool isMe;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.all(10.0),
-      child: Column(
-        crossAxisAlignment:
-            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: <Widget>[
-          Text(
-            sender!,
-            style: TextStyle(
-              fontSize: 12.0,
-              color: Colors.black54,
-            ),
-          ),
-          Material(
-            borderRadius: isMe
-                ? BorderRadius.only(
-                    topLeft: Radius.circular(30.0),
-                    bottomLeft: Radius.circular(30.0),
-                    bottomRight: Radius.circular(30.0))
-                : BorderRadius.only(
-                    bottomLeft: Radius.circular(30.0),
-                    bottomRight: Radius.circular(30.0),
-                    topRight: Radius.circular(30.0),
-                  ),
-            elevation: 5.0,
-            color: isMe ? Colors.lightBlueAccent : Colors.white,
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
-              child: Text(
-                text!,
-                style: TextStyle(
-                  color: isMe ? Colors.white : Colors.black54,
-                  fontSize: 15.0,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  messageTextController.clear(); // Text-filden bliver ryddes
 }

@@ -50,6 +50,6 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:1.8.21")
     implementation("com.google.firebase:firebase-bom:34.4.0")
     // Firebase dependencies ( Auth، Firestore)
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx:21.3.0")
+    implementation("com.google.firebase:firebase-firestore-ktx:24.7.1")
 }

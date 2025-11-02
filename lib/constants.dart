@@ -17,16 +17,21 @@ const kMessageContainerDecoration = BoxDecoration(
     top: BorderSide(color: Colors.lightBlueAccent, width: 2.0),
   ),
 );
+
 const kTextFieldDecoration = InputDecoration(
+  // Tekst, der vises, når TextField er tom.
+  // Den viser brugeren, hvad der skal indtastes.
   hintText: 'Enter a value',
+  // laves marginer og padding
   contentPadding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
+  // Kanterne skal være runde og flotte
   border: OutlineInputBorder(
     borderRadius: BorderRadius.all(Radius.circular(32.0)),
-  ),
+  ), // Når TextField er aktiv, men ikke valgt, anvendes denne stil.
   enabledBorder: OutlineInputBorder(
     borderSide: BorderSide(color: Colors.blueAccent, width: 1.0),
     borderRadius: BorderRadius.all(Radius.circular(32.0)),
-  ),
+  ), // (Når brugeren klikker på det og skriver), aktiveres denne stil.
   focusedBorder: OutlineInputBorder(
     borderSide: BorderSide(color: Colors.blueAccent, width: 2.0),
     borderRadius: BorderRadius.all(Radius.circular(32.0)),
