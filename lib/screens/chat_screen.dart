@@ -1,37 +1,34 @@
+import 'package:flash_chat/screens/userList_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flash_chat/constants.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../messages/message_stream.dart';
+import 'login_screen.dart';
 
-// forbindelsen til databasen,
-// opretter en instans af Firestore, så vi kan gemme og læse data
 final _firestore = FirebaseFirestore.instance;
-// gemmer oplysninger om den indloggede bruger
-// ? betyder, at værdien kan være null
 User? loggedInUser;
-// En controller til TextField til at læse eller rydde den indtastede tekst
 final messageTextController = TextEditingController();
 
 class ChatScreen extends StatefulWidget {
-  // static const String id bruges til at identificere siden i navigationen
   static const String id = 'chat_screen';
+  final String? selectedUserEmail;
+
+  ChatScreen({this.selectedUserEmail});
+
   @override
   _ChatScreenState createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
   final _auth = FirebaseAuth.instance;
-// En variabel til at gemme beskedteksten, inden den sendes
   late String messageText;
+  bool _isLoadingUser = true;
 
   @override
   void initState() {
     super.initState();
-
-    // at identificere den indloggede bruger
-
     getCurrentUser();
   }
 
@@ -39,50 +36,73 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       final user = await _auth.currentUser;
       if (user != null) {
-        loggedInUser = user;
+        setState(() {
+          loggedInUser = user;
+        });
         print('Logged in as: ${loggedInUser!.email}');
       } else {
         print('No user signed in.');
       }
     } catch (e) {
-      print(e);
+      print('⚠️ Error getting user: $e');
+    } finally {
+      setState(() {
+        _isLoadingUser = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final currentUserEmail = loggedInUser?.email;
+
+    if (currentUserEmail == null) {
+      print('⏳ Waiting for loggedInUser...');
+      return Center(child: CircularProgressIndicator());
+    }
+    if (_isLoadingUser) {
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
-      // scaffold builder siden og har to dele en app-bar og en body
+      // en app bar og en body
       appBar: AppBar(
-        // betyder at den venstre side skal ikke have knappen
-        leading: null,
+        leading: IconButton(
+          // venstre default tilbage-knappen pyntes med:
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
         actions: <Widget>[
           IconButton(
-              // at logge brugeren ud og gå tilbage til den forrige side
+              // at logUd-knap
               icon: Icon(Icons.close),
               onPressed: () {
                 _auth.signOut();
-                Navigator.pop(context);
+                Navigator.pushReplacementNamed(context, LoginScreen.id);
               }),
         ],
-        title: Text('⚡️Chat'),
+        title: Text('⚡️Chat with ${widget.selectedUserEmail}'),
         backgroundColor: Colors.lightBlueAccent,
       ),
-      // Sikrer, at indholdet vises i de sikre områder af skærmen
       body: SafeArea(
-        // Column arrangerer indholdet lodret
+        // sikre områder af skærmen
         child: Column(
-          // giver afstand mellem beskederne
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween, //afstand mellem
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          // den består af en del til at vise beskeder og en send afdeling
           children: <Widget>[
-            MessagesStream(
-              firestore: _firestore,
+            Expanded(
+              child: _isLoadingUser || loggedInUser == null
+                  ? Center(child: CircularProgressIndicator())
+                  : MessagesStream(
+                      key: ValueKey(widget.selectedUserEmail),
+                      firestore: _firestore,
+                      selectedUserEmail: widget.selectedUserEmail!,
+                    ),
             ),
             Container(
-              // den container for at sende-besked indeholder row:
-              // en tekst-file og en knappe
               decoration: kMessageContainerDecoration,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -90,13 +110,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   Expanded(
                     child: TextField(
                       controller: messageTextController,
-                      // onChanged gemmer værdien i messageText hver gang teksten ændres
                       onChanged: (value) {
                         messageText = value;
-                      }, // når brugeren indtaster Enter, Parameteren text
-                      //  får automatisk værdien, som brugeren har skrevet i
-                      // TextField,
-                      onSubmitted: sendMessage,
+                      },
+                      onSubmitted: (value) => // inter knappen
+                          sendMessage(value, widget.selectedUserEmail!),
                       // ændrer kun udseendet af Enter-knappen på tastaturet
                       textInputAction: TextInputAction.send,
                       decoration: kMessageTextFieldDecoration,
@@ -104,7 +122,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   TextButton(
                     onPressed: () {
-                      sendMessage(messageText);
+                      sendMessage(messageText, widget.selectedUserEmail!);
+                      setState(() {});
                     },
                     child: Text(
                       'Send',
@@ -120,13 +139,34 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-void sendMessage(String text) {
-  if (text.trim().isEmpty) return; // Hvis teksten er tom, sendes ikke noget
-  _firestore.collection('messages').add({
-    'text': text,
-    'sender': loggedInUser?.email,
-    'timestamp': FieldValue.serverTimestamp(),
-  });
+void sendMessage(String text, String receiverEmail) async {
+  if (text.trim().isEmpty) return;
+  if (loggedInUser == null) {
+    print('⚠️ No logged-in user!');
+    return;
+  }
 
-  messageTextController.clear(); // Text-filden bliver ryddes
+  final senderEmail = loggedInUser!.email!;
+  final timestamp = FieldValue.serverTimestamp();
+
+  final sortedParticipants = [senderEmail, receiverEmail]..sort();
+  final chatId = sortedParticipants.join('_');
+
+  try {
+    await _firestore
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .add({
+      'text': text.trim(),
+      'sender': senderEmail,
+      'receiver': receiverEmail,
+      'timestamp': timestamp,
+    });
+
+    print('💾 Message sent from $senderEmail to $receiverEmail');
+  } catch (e) {
+    print('❌ Error sending message: $e');
+  }
+  messageTextController.clear();
 }

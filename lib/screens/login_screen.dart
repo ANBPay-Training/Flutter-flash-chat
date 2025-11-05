@@ -1,8 +1,8 @@
+import 'package:flash_chat/screens/userList_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flash_chat/components/rounded_button.dart';
 import 'package:flash_chat/constants.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'chat_screen.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   try {
                     final user = await _auth.signInWithEmailAndPassword(
                         email: email, password: password);
-                    Navigator.pushNamed(context, ChatScreen.id);
+                    Navigator.pushNamed(context, UserListScreen.id);
 
                     setState(() {
                       showSpinner = false;

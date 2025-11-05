@@ -1,63 +1,96 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flash_chat/screens/chat_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flash_chat/screens/chat_screen.dart';
+import 'message_bubble.dart';
 
-import 'message_bubble.dart'; // viser beskeder som "boble"-stil
-
-class MessagesStream extends StatelessWidget {
+class MessagesStream extends StatefulWidget {
   final FirebaseFirestore firestore;
-  MessagesStream({required this.firestore});
+  final String selectedUserEmail;
+
+  const MessagesStream({
+    Key? key,
+    required this.firestore,
+    required this.selectedUserEmail,
+  }) : super(key: key);
+
+  @override
+  State<MessagesStream> createState() => _MessagesStreamState();
+}
+
+class _MessagesStreamState extends State<MessagesStream> {
+  Stream<QuerySnapshot>? _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    _createStream();
+  }
+
+  @override
+  void didUpdateWidget(MessagesStream oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedUserEmail != widget.selectedUserEmail) {
+      _createStream(); // lave en ny stream når selectet bruger ændres
+    }
+  }
+
+  void _createStream() {
+    final currentUserEmail = loggedInUser?.email;
+    final selectedUserEmail = widget.selectedUserEmail;
+
+    if (currentUserEmail == null || selectedUserEmail.isEmpty) return;
+
+    final sortedParticipants = [currentUserEmail, selectedUserEmail]..sort();
+    final chatId = sortedParticipants.join('_');
+
+    setState(() {
+      _stream = widget.firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .snapshots();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    // lytter til en stream og builder UI'et, hver gang data ændres
+    final currentUserEmail = loggedInUser?.email;
+    if (currentUserEmail == null || _stream == null) {
+      return Center(child: CircularProgressIndicator());
+    }
+
     return StreamBuilder<QuerySnapshot>(
-      stream: firestore
-          .collection('messages')
-          // Sorterer beskederne efter tid, med de nyeste først
-          .orderBy('timestamp', descending: true)
-          // indeholder den aktuelle tilstand af streamen
-          .snapshots(),
+      stream: _stream,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
-            // Hvis der endnu ikke er nogen data vises en spinner
             child: CircularProgressIndicator(
               backgroundColor: Colors.lightBlueAccent,
             ),
           );
         }
-        // list af alle documents
-        final messages = snapshot.data!.docs;
-        // en tom list til at samle alle boble-wigets
-        List<MessageBubble> messageBubbles = [];
-        for (var message in messages) {
-          // retunere alle dokumenter som map
-          final messageData = message.data() as Map<String, dynamic>;
-          final messageText = messageData['text'];
-          final messageSender = messageData['sender'];
-          // defineret i chat_screen og gemmer den aktuelt loggede bruger
-          final currentUser = loggedInUser?.email;
 
-          // opretter en message-bubble med de tre variabler
-          final messageBubble = MessageBubble(
-            sender: messageSender,
-            text: messageText,
-            isMe: currentUser == messageSender,
-          );
-          // adder hver message-bubble objekt til en liste som retunere senere
-          messageBubbles.add(messageBubble);
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(child: Text('No messages yet'));
         }
-        // fylder den resterende plads på skærmen
-        return Expanded(
-          // retuner aller besked som bubbler
-          child: ListView(
-            // de nyeste beskeder vises øverst på listen
-            reverse: true,
-            // afstand fra kanterne
-            padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 20.0),
-            children: messageBubbles,
-          ),
+
+        final messages = snapshot.data!.docs;
+        final filteredMessages = messages;
+
+        List<MessageBubble> messageBubbles = filteredMessages.map((message) {
+          final messageData = message.data() as Map<String, dynamic>;
+          return MessageBubble(
+            sender: messageData['sender'],
+            text: messageData['text'],
+            isMe: messageData['sender'] == currentUserEmail,
+          );
+        }).toList();
+
+        return ListView(
+          reverse: true,
+          padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 20.0),
+          children: messageBubbles,
         );
       },
     );

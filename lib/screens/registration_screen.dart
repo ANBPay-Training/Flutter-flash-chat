@@ -1,9 +1,10 @@
+import 'package:flash_chat/screens/userList_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flash_chat/components/rounded_button.dart';
 import 'package:flash_chat/constants.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'chat_screen.dart';
 import 'package:modal_progress_hud_nsn/modal_progress_hud_nsn.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegistrationScreen extends StatefulWidget {
   static const String id = 'registration_screen';
@@ -12,6 +13,7 @@ class RegistrationScreen extends StatefulWidget {
 }
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
+  final _firestore = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
   bool showSpinner = false;
   late String email;
@@ -76,9 +78,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     final newUser = await _auth.createUserWithEmailAndPassword(
                         email: email, password: password);
                     if (newUser != null) {
-                      Navigator.pushNamed(context, ChatScreen.id);
+                      await _firestore
+                          .collection('users')
+                          .doc(newUser.user!.uid)
+                          .set({
+                        'email': email,
+                        'password': password,
+                      });
+                      Navigator.pushNamed(context, UserListScreen.id);
                     }
-
                     setState(() {
                       showSpinner = false;
                     });

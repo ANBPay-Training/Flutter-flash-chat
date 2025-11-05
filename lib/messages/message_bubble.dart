@@ -12,12 +12,9 @@ class MessageBubble extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.all(10.0),
       child: Column(
-        // Den, der første-bruger, ser altid sine egne beskeder
-        // til højre og andre bruger ser beskederne til venstre.
         crossAxisAlignment:
             isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: <Widget>[
-          // Denne sektion styrer stilen på afsenderens navn
           Text(
             sender!,
             style: TextStyle(
@@ -26,9 +23,7 @@ class MessageBubble extends StatelessWidget {
             ),
           ),
           Material(
-            // Den, der er logget ind i systemet, ser altid sine egne beskeder
-            //  i en circle boble med en spids i højre side, ellers venstre!
-            borderRadius: isMe
+            borderRadius: isMe //en spids i højre side, andre venstre!
                 ? BorderRadius.only(
                     topLeft: Radius.circular(30.0),
                     bottomLeft: Radius.circular(30.0),
@@ -39,16 +34,13 @@ class MessageBubble extends StatelessWidget {
                     topRight: Radius.circular(30.0),
                   ),
             elevation: 5.0,
-            // Den, der er logget ind i systemet, ser altid sine egne beskeder
-            //  i en blå circle boble ellers i hvid farve.
             color: isMe ? Colors.lightBlueAccent : Colors.white,
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
               child: Text(
                 text!,
                 style: TextStyle(
-                  // Den første-bruger ser altid sine egne beskeder
-                  // med hvid tekst andre i sort farve!
+                  // login ser hvid tekst og andre i sort farve!
                   color: isMe ? Colors.white : Colors.black54,
                   fontSize: 15.0,
                 ),
