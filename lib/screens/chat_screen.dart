@@ -1,8 +1,8 @@
-import 'package:flash_chat/screens/userList_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flash_chat/constants.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flash_chat/messages/message_send.dart';
 
 import '../messages/message_stream.dart';
 import 'login_screen.dart';
@@ -25,6 +25,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _auth = FirebaseAuth.instance;
   late String messageText;
   bool _isLoadingUser = true;
+  late MessageSend messageSender;
 
   @override
   void initState() {
@@ -38,6 +39,11 @@ class _ChatScreenState extends State<ChatScreen> {
       if (user != null) {
         setState(() {
           loggedInUser = user;
+          messageSender = MessageSend(
+            firestore: _firestore,
+            messageController: messageTextController,
+            loggedInUser: loggedInUser,
+          );
         });
         print('Logged in as: ${loggedInUser!.email}');
       } else {
@@ -90,6 +96,7 @@ class _ChatScreenState extends State<ChatScreen> {
       body: SafeArea(
         // sikre områder af skærmen
         child: Column(
+          // message stream og send knappen
           mainAxisAlignment: MainAxisAlignment.spaceBetween, //afstand mellem
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
@@ -114,7 +121,8 @@ class _ChatScreenState extends State<ChatScreen> {
                         messageText = value;
                       },
                       onSubmitted: (value) => // inter knappen
-                          sendMessage(value, widget.selectedUserEmail!),
+                          messageSender.sendMessage(
+                              value, widget.selectedUserEmail!),
                       // ændrer kun udseendet af Enter-knappen på tastaturet
                       textInputAction: TextInputAction.send,
                       decoration: kMessageTextFieldDecoration,
@@ -122,7 +130,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   TextButton(
                     onPressed: () {
-                      sendMessage(messageText, widget.selectedUserEmail!);
+                      messageSender.sendMessage(
+                          messageText, widget.selectedUserEmail!);
                       setState(() {});
                     },
                     child: Text(
@@ -137,36 +146,4 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
-}
-
-void sendMessage(String text, String receiverEmail) async {
-  if (text.trim().isEmpty) return;
-  if (loggedInUser == null) {
-    print('⚠️ No logged-in user!');
-    return;
-  }
-
-  final senderEmail = loggedInUser!.email!;
-  final timestamp = FieldValue.serverTimestamp();
-
-  final sortedParticipants = [senderEmail, receiverEmail]..sort();
-  final chatId = sortedParticipants.join('_');
-
-  try {
-    await _firestore
-        .collection('chats')
-        .doc(chatId)
-        .collection('messages')
-        .add({
-      'text': text.trim(),
-      'sender': senderEmail,
-      'receiver': receiverEmail,
-      'timestamp': timestamp,
-    });
-
-    print('💾 Message sent from $senderEmail to $receiverEmail');
-  } catch (e) {
-    print('❌ Error sending message: $e');
-  }
-  messageTextController.clear();
 }

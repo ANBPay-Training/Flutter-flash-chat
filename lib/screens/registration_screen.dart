@@ -56,7 +56,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 height: 8.0,
               ),
               TextField(
-                obscureText: true,
+                obscureText: true, // at skjule password
                 textAlign: TextAlign.center,
                 onChanged: (value) {
                   password = value;

@@ -4,6 +4,7 @@ import 'package:flash_chat/screens/chat_screen.dart';
 import 'message_bubble.dart';
 
 class MessagesStream extends StatefulWidget {
+  // en Stateful widget enopbygger sig selv, når der sker ændringer
   final FirebaseFirestore firestore;
   final String selectedUserEmail;
 
@@ -37,19 +38,22 @@ class _MessagesStreamState extends State<MessagesStream> {
   void _createStream() {
     final currentUserEmail = loggedInUser?.email;
     final selectedUserEmail = widget.selectedUserEmail;
-
+    // Hvis en af dem er tom, gør den ingenting
     if (currentUserEmail == null || selectedUserEmail.isEmpty) return;
 
+    // de to e-mailadresser bliver sorteres og sætter dem sammen
     final sortedParticipants = [currentUserEmail, selectedUserEmail]..sort();
-    final chatId = sortedParticipants.join('_');
 
+    // en unik identifikation af chatten mellem de to brugere.
+    final chatId = sortedParticipants.join('_');
+    // Begge brugere bruger altid den samme chatsti fordi den er sorteret
     setState(() {
       _stream = widget.firestore
           .collection('chats')
           .doc(chatId)
           .collection('messages')
           .orderBy('timestamp', descending: true)
-          .snapshots();
+          .snapshots(); // læser data fra databasen
     });
   }
 
@@ -75,17 +79,9 @@ class _MessagesStreamState extends State<MessagesStream> {
           return Center(child: Text('No messages yet'));
         }
 
-        final messages = snapshot.data!.docs;
-        final filteredMessages = messages;
-
-        List<MessageBubble> messageBubbles = filteredMessages.map((message) {
-          final messageData = message.data() as Map<String, dynamic>;
-          return MessageBubble(
-            sender: messageData['sender'],
-            text: messageData['text'],
-            isMe: messageData['sender'] == currentUserEmail,
-          );
-        }).toList();
+        final filteredMessages = snapshot.data!.docs;
+        final messageBubbles =
+            _buildMessageBubbles(filteredMessages, currentUserEmail);
 
         return ListView(
           reverse: true,
@@ -95,4 +91,19 @@ class _MessagesStreamState extends State<MessagesStream> {
       },
     );
   }
+}
+
+// en list af messsage-bubble classe
+List<MessageBubble> _buildMessageBubbles(
+    // snapshot.data!.docs og login bruger
+    List<QueryDocumentSnapshot> docs,
+    String currentUserEmail) {
+  return docs.map((msg) {
+    final messageData = msg.data() as Map<String, dynamic>;
+    return MessageBubble(
+      sender: messageData['sender'],
+      text: messageData['text'],
+      isMe: messageData['sender'] == currentUserEmail,
+    );
+  }).toList();
 }
