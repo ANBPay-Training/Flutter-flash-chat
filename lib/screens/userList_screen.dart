@@ -105,7 +105,9 @@ class UserListScreen extends StatelessWidget {
                 return ListView(
                   padding: EdgeInsets.all(16),
                   children: groups.map((group) {
-                    final groupName = group['name'] ?? 'Unnamed Group';
+                    final groupName = group.data().toString().contains('name')
+                        ? group['name']
+                        : 'Unnamed Group';
                     final groupId = group.id;
 
                     return Padding(
