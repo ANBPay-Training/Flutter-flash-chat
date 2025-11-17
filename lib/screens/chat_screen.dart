@@ -14,8 +14,10 @@ final messageTextController = TextEditingController();
 class ChatScreen extends StatefulWidget {
   static const String id = 'chat_screen';
   final String? selectedUserEmail;
+  final String? groupId;
+  final String? groupName;
 
-  ChatScreen({this.selectedUserEmail});
+  ChatScreen({this.selectedUserEmail, this.groupId, this.groupName});
 
   @override
   _ChatScreenState createState() => _ChatScreenState();
@@ -58,6 +60,19 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _sendMessage() {
+    if (messageText.trim().isEmpty) return;
+
+    if (widget.groupId != null) {
+      messageSender.sendMessageToGroup(messageText, widget.groupId!);
+    } else if (widget.selectedUserEmail != null) {
+      messageSender.sendMessage(messageText, widget.selectedUserEmail!);
+    }
+
+    messageTextController.clear();
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUserEmail = loggedInUser?.email;
@@ -90,7 +105,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 Navigator.pushReplacementNamed(context, LoginScreen.id);
               }),
         ],
-        title: Text('⚡️Chat with ${widget.selectedUserEmail}'),
+        title: Text(
+          widget.groupId != null
+              ? '⚡️Group: ${widget.groupName ?? widget.groupId}'
+              : '⚡️Chat with ${widget.selectedUserEmail}',
+        ),
         backgroundColor: Colors.lightBlueAccent,
       ),
       body: SafeArea(
@@ -104,9 +123,10 @@ class _ChatScreenState extends State<ChatScreen> {
               child: _isLoadingUser || loggedInUser == null
                   ? Center(child: CircularProgressIndicator())
                   : MessagesStream(
-                      key: ValueKey(widget.selectedUserEmail),
+                      key: ValueKey(widget.selectedUserEmail ?? widget.groupId),
                       firestore: _firestore,
-                      selectedUserEmail: widget.selectedUserEmail!,
+                      selectedUserEmail: widget.selectedUserEmail,
+                      groupId: widget.groupId,
                     ),
             ),
             Container(
@@ -121,8 +141,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         messageText = value;
                       },
                       onSubmitted: (value) => // inter knappen
-                          messageSender.sendMessage(
-                              value, widget.selectedUserEmail!),
+                          _sendMessage(),
                       // ændrer kun udseendet af Enter-knappen på tastaturet
                       textInputAction: TextInputAction.send,
                       decoration: kMessageTextFieldDecoration,
@@ -130,8 +149,14 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   TextButton(
                     onPressed: () {
-                      messageSender.sendMessage(
-                          messageText, widget.selectedUserEmail!);
+                      if (widget.groupId != null) {
+                        messageSender.sendMessageToGroup(
+                            messageText, widget.groupId!);
+                      } else if (widget.selectedUserEmail != null) {
+                        messageSender.sendMessage(
+                            messageText, widget.selectedUserEmail!);
+                      }
+
                       setState(() {});
                     },
                     child: Text(

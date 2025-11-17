@@ -6,12 +6,14 @@ import 'message_bubble.dart';
 class MessagesStream extends StatefulWidget {
   // en Stateful widget enopbygger sig selv, når der sker ændringer
   final FirebaseFirestore firestore;
-  final String selectedUserEmail;
+  final String? selectedUserEmail;
+  final String? groupId;
 
   const MessagesStream({
     Key? key,
     required this.firestore,
-    required this.selectedUserEmail,
+    this.selectedUserEmail,
+    this.groupId,
   }) : super(key: key);
 
   @override
@@ -30,22 +32,36 @@ class _MessagesStreamState extends State<MessagesStream> {
   @override
   void didUpdateWidget(MessagesStream oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedUserEmail != widget.selectedUserEmail) {
+    if (oldWidget.selectedUserEmail != widget.selectedUserEmail ||
+        oldWidget.groupId != widget.groupId) {
       _createStream(); // lave en ny stream når selectet bruger ændres
     }
-  }
+  } //MessagesStream gør at beskeren bliver updateret live-mode
 
   void _createStream() {
     final currentUserEmail = loggedInUser?.email;
-    final selectedUserEmail = widget.selectedUserEmail;
+
     // Hvis en af dem er tom, gør den ingenting
-    if (currentUserEmail == null || selectedUserEmail.isEmpty) return;
+    if (currentUserEmail == null) return;
+    if (widget.groupId != null) {
+      setState(() {
+        _stream = widget.firestore
+            .collection('groups')
+            .doc(widget.groupId)
+            .collection('messages')
+            .orderBy('timestamp', descending: true)
+            .snapshots();
+      });
+      return;
+    }
+    final selectedUserEmail = widget.selectedUserEmail;
+    if (selectedUserEmail == null || selectedUserEmail.isEmpty) return;
 
     // de to e-mailadresser bliver sorteres og sætter dem sammen
     final sortedParticipants = [currentUserEmail, selectedUserEmail]..sort();
-
     // en unik identifikation af chatten mellem de to brugere.
     final chatId = sortedParticipants.join('_');
+
     // Begge brugere bruger altid den samme chatsti fordi den er sorteret
     setState(() {
       _stream = widget.firestore
@@ -53,7 +69,7 @@ class _MessagesStreamState extends State<MessagesStream> {
           .doc(chatId)
           .collection('messages')
           .orderBy('timestamp', descending: true)
-          .snapshots(); // læser data fra databasen
+          .snapshots(); //snapshots() Opretter en live stream fra Firestore
     });
   }
 
@@ -65,8 +81,10 @@ class _MessagesStreamState extends State<MessagesStream> {
     }
 
     return StreamBuilder<QuerySnapshot>(
+      //Lytter til snapshots-stream hele tiden
       stream: _stream,
       builder: (context, snapshot) {
+        // Opbygger UI hver gang data ændres
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
             child: CircularProgressIndicator(
@@ -74,19 +92,21 @@ class _MessagesStreamState extends State<MessagesStream> {
             ),
           );
         }
+        // ingen setState, fordi StreamBuilder automatisk opdaterer UI'et
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return Center(child: Text('No messages yet'));
         }
 
-        final filteredMessages = snapshot.data!.docs;
-        final messageBubbles =
-            _buildMessageBubbles(filteredMessages, currentUserEmail);
+        final messageList = _buildMessageBubbles(
+          snapshot.data!.docs,
+          currentUserEmail,
+        );
 
         return ListView(
           reverse: true,
           padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 20.0),
-          children: messageBubbles,
+          children: messageList,
         );
       },
     );
@@ -104,6 +124,8 @@ List<MessageBubble> _buildMessageBubbles(
       sender: messageData['sender'],
       text: messageData['text'],
       isMe: messageData['sender'] == currentUserEmail,
+      messageId: msg.id,
+      chatId: msg.reference.parent.parent!.id,
     );
   }).toList();
 }

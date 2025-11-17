@@ -45,4 +45,16 @@ class MessageSend {
 
     messageController.clear();
   }
+
+  void sendMessageToGroup(String text, String groupId) {
+    final currentUserEmail = loggedInUser?.email;
+
+    firestore.collection('groups').doc(groupId).collection('messages').add({
+      'text': text,
+      'sender': currentUserEmail,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+
+    messageController.clear();
+  }
 }
